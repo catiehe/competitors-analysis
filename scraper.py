@@ -73,7 +73,7 @@ def scrape_shopify(base_url, brand_name):
                     "Color": [color] if color else [],
                     "Size": [size] if size else [],
                     "Category": [product_type] if product_type else [],
-                    "Price": str(price),
+                    "Price": price,
                     "Product URL": {"link": product_url, "text": name},
                     "Image URL": {"link": img_url, "text": "View Image"} if img_url else "",
                     "Competitor Source": brand_name,
@@ -90,9 +90,17 @@ def scrape_shopify(base_url, brand_name):
     return products
 
 def main():
-    print("🚀 开始抓取竞品数据 (Shopify JSON API)...\n")
+    import sys
+    if len(sys.argv) == 3:
+        url, brand = sys.argv[1], sys.argv[2]
+    else:
+        print("用法: python scraper.py <品牌URL> <品牌名>")
+        print("示例: python scraper.py https://wooland.com Wooland")
+        sys.exit(1)
 
-    products = scrape_shopify("https://unboundmerino.com", "Unbound Merino")
+    print(f"🚀 开始抓取 {brand} ({url})...\n")
+
+    products = scrape_shopify(url, brand)
     print(f"\n📦 共抓取 {len(products)} 个SKU记录")
 
     if not products:
