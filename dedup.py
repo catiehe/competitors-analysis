@@ -50,12 +50,19 @@ def delete_records(token, record_ids):
             print(f"❌ 删除失败: {result.get('msg')}")
 
 def main():
+    import sys
+    brand_filter = sys.argv[1] if len(sys.argv) > 1 else None
+
     print("🔗 获取Token...")
     token = get_token()
 
     print("📖 读取所有记录...")
     records = fetch_all_records(token)
     print(f"共 {len(records)} 条记录")
+
+    if brand_filter:
+        records = [r for r in records if r.get("fields", {}).get("Brand", "") == brand_filter]
+        print(f"筛选品牌 [{brand_filter}]：{len(records)} 条")
 
     # 按SKU去重，保留第一条，删除其余
     seen = {}

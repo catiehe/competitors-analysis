@@ -1,4 +1,6 @@
 import requests
+import subprocess
+import json
 import os
 from datetime import datetime
 from dotenv import load_dotenv
@@ -26,8 +28,19 @@ def write_to_feishu(token, records):
     }
     payload = {"records": [{"fields": r} for r in records]}
     res = requests.post(url, headers=headers, json=payload)
-    print(f"[DEBUG] Status: {res.status_code}, Response: {res.text[:500]}")
     return res.json()
+
+def fetch_json(url):
+    try:
+        res = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
+        data = res.json()
+        if "products" in data:
+            return data
+    except Exception:
+        pass
+    # 被拦截时回退到 curl
+    result = subprocess.run(["curl", "-s", "--max-time", "15", url], capture_output=True, text=True)
+    return json.loads(result.stdout)
 
 def scrape_shopify(base_url, brand_name):
     products = []
@@ -36,8 +49,7 @@ def scrape_shopify(base_url, brand_name):
 
     while True:
         url = f"{base_url}/products.json?limit=250&page={page}"
-        res = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
-        data = res.json()
+        data = fetch_json(url)
         items = data.get("products", [])
         if not items:
             break
@@ -75,7 +87,7 @@ def scrape_shopify(base_url, brand_name):
                     "Category": [product_type] if product_type else [],
                     "Price": price,
                     "Product URL": {"link": product_url, "text": name},
-                    "Image URL": {"link": img_url, "text": "View Image"} if img_url else "",
+                    **({"Image URL": {"link": img_url, "text": "View Image"}} if img_url else {}),
                     "Competitor Source": brand_name,
                     "Brand": brand_name,
                     "Date Collected": today
@@ -91,16 +103,26 @@ def scrape_shopify(base_url, brand_name):
 
 def main():
     import sys
-    if len(sys.argv) == 3:
+    if len(sys.argv) >= 3:
         url, brand = sys.argv[1], sys.argv[2]
+        keyword = sys.argv[3].lower() if len(sys.argv) >= 4 else None
     else:
-        print("用法: python scraper.py <品牌URL> <品牌名>")
+        print("用法: python scraper.py <品牌URL> <品牌名> [关键词过滤]")
         print("示例: python scraper.py https://wooland.com Wooland")
+        print("示例: python scraper.py https://sheepinc.com SheepInc merino")
         sys.exit(1)
 
     print(f"🚀 开始抓取 {brand} ({url})...\n")
+    if keyword:
+        print(f"🔍 仅保留产品名包含 [{keyword}] 的记录\n")
 
     products = scrape_shopify(url, brand)
+
+    if keyword:
+        before = len(products)
+        keywords = [k.strip().lower() for k in keyword.split("|")]
+        products = [p for p in products if any(k in p["Product Name"].lower() for k in keywords)]
+        print(f"\n🔍 过滤后保留 {len(products)} 条（原 {before} 条）")
     print(f"\n📦 共抓取 {len(products)} 个SKU记录")
 
     if not products:
@@ -123,8 +145,7 @@ def main():
         if result.get("code") == 0:
             print(f"✅ 写入 {len(batch)} 条")
         else:
-            print(f"❌ 写入失败: {result.get('msg')}")
-            break
+            print(f"❌ 写入失败 (batch {i//batch_size + 1}): {result.get('msg')}")
 
     print("\n🎉 完成！请打开飞书多维表格查看数据")
 
