@@ -1,10 +1,13 @@
 {
   "managed": {
+    "analyze-amazon": "symlink",
     "competitor-analysis": "symlink",
     "github-pages": "symlink",
     "hello-world": "symlink",
+    "scrape-amazon": "symlink",
     "scrape-brand": "symlink",
+    "scrape-tiktok": "symlink",
     "skill-creator": "symlink"
   },
-  "updated_at": "2026-06-19T07:48:09.76757947Z"
+  "updated_at": "2026-06-25T06:27:54.805455051Z"
 }

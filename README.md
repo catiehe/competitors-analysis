@@ -1,198 +1,103 @@
-# AI Agentic Tools Template
+# Competitor Analysis Toolkit
 
-A minimal starting point for working with AI coding assistants in a dev container. The container image comes pre-loaded with all tools — this repo only needs the config files to get everything running.
-
----
-
-## Quick Start
-
-1. Click **"Use this template"** button (top right of this repo)
-2. Select **"Create a new repository"**
-3. Name your repository and click **"Create repository from template"**
-4. Open your new repo in GitHub Codespaces:
-   - Click **Code** → **Codespaces** → **Create codespace on main**
-5. VS Code will open and the dev container will automatically build
-6. The postCreateCommand will run:
-   - Set up SSH keys and PATH
-   - Install and configure MCP servers
-   - Initialize skills infrastructure
-   - Install the skill-creator tool
-   - Sync all skills to your agents
-
-**That's it!** All AI agents (Claude Code, OpenCode, Copilot, Crush, Gemini, Codex) are ready to use.
+An AI-assisted competitive intelligence tool for wool/merino apparel brands. Scrapes product data from Shopify competitor stores, Amazon, and TikTok Shop, stores it in Feishu Bitable, and generates structured product development reports.
 
 ---
 
-## What's in the Dev Container
+## What It Does
 
-Your container includes:
-
-- **[Claude Code](https://code.claude.com/docs/en/overview)** — AI agentic coding tool from Anthropic
-- **[OpenCode](https://github.com/opencode-ai/opencode)** — Open source code-focused AI tool
-- **[Copilot](https://github.com/features/copilot)** — GitHub's AI pair programmer
-- **[Crush](https://github.com/charmbracelet/crush)** — A beautifully themed assistant for command-line work
-- **[Codex](https://github.com/openai/codex)** — OpenAI's agentic tool
-- **[Gemini](https://github.com/google-gemini/gemini-cli)** — Google's AI coding assistant
-
-**Configuration managed by:**
-- `configs/mcp-servers.conf` — Model Context Protocol servers available to all agents
-- `.skillshare/` — Custom skills available to all agents (single source of truth)
+1. **Scrape competitor data** — pull SKU-level product, price, color, and size data from Shopify stores; keyword search results from Amazon and TikTok Shop
+2. **Store in Feishu Bitable** — all records land in shared tables for team review
+3. **Generate analysis reports** — AI-assisted reports covering pricing, color range, sizing, category mix, and strategic recommendations
 
 ---
 
-## Starting the Agents
+## Scraper
 
-All launcher scripts live in `permissions/` inside the container (baked into the image). Each one starts its tool with the right flags so you're not interrupted by permission prompts.
+All scraping is handled by a single entry point:
 
-### Claude Code
+```bash
+source venv/bin/activate
 
-```
-# claude.sh
-```
+# Shopify brand — scrape all SKUs
+python scraper.py shopify <url> <brand> [keyword_filter]
 
-Runs `claude` with `IS_SANDBOX=1` and `--dangerously-skip-permissions`. In a dev container this is safe and makes the experience much smoother.
+# Amazon — top sellers by keyword
+python scraper.py amazon <keyword> [exclude1,exclude2] [top_n] [max_fetch]
 
-### OpenCode
-
-```
-# opencode.sh
-```
-
-Permissions are handled by `.opencode/opencode.json`, already configured with `read`, `write`, and `execute` set to `allow`.
-
-### Copilot
-
-```
-# copilot.sh
+# TikTok Shop — top sellers by keyword
+python scraper.py tiktok <keyword> [exclude1,exclude2] [top_n]
 ```
 
-Runs `copilot --allow-all`.
+**Examples:**
 
-### Crush
-
+```bash
+python scraper.py shopify https://wooland.com Wooland
+python scraper.py shopify https://sheepinc.com SheepInc merino
+python scraper.py amazon 'merino wool sweater' sock,yarn
+python scraper.py tiktok 'merino wool' sock,glove
 ```
-# crush.sh
-```
-
-Runs `crush --yolo`.
-
-### Codex
-
-```
-# codex.sh
-```
-
-Permissions are handled via `.codex/config.toml`, already configured for a sandbox environment.
 
 ---
 
-## MCPs (Model Context Protocol Servers)
+## Skills (AI Agent Commands)
 
-MCP servers extend AI tools with access to external data and services. All MCP configuration flows from a single file: `configs/mcp-servers.conf`
+The following slash commands are available inside Claude Code (and other agents after `sync-skills.sh`):
 
-### Adding Additional MCPs
-
-Edit `configs/mcp-servers.conf` and add entries using this format:
-
-```
-# SSE MCP (no authentication):
-dolt=https://bus-mgmt-databases.mcp.mathplosion.com/mcp-dolt-database/sse
-
-# HTTP MCP with authentication (credential from environment variable):
-# stitch=https://stitch.googleapis.com/mcp|http|X-Goog-Api-Key:$STITCH_API_KEY
-```
-
-The `dolt` entry above is already active and provides access to a version-controlled SQL database. To add other authenticated MCPs like Stitch, uncomment the entry and provide the API key via environment variables.
-
-After editing `configs/mcp-servers.conf`, run:
-
-```
-# install-mcps.sh
-```
-
-This reads the conf file and registers each MCP in all AI tools — Claude, OpenCode, Gemini, Crush, Copilot, and Codex. Safe to re-run; existing entries are replaced with current values.
-
-### For Authenticated MCPs
-
-To use authenticated MCPs like Stitch:
-
-1. Add the secret (e.g., `STITCH_API_KEY`) at [github.com/settings/codespaces](https://github.com/settings/codespaces) under "Repository secrets"
-2. Declare the secret in `.devcontainer/devcontainer.json` under `"secrets"` — this works in both GitHub Codespaces and local devcontainers:
-   ```json
-   "secrets": {
-     "STITCH_API_KEY": "STITCH_API_KEY"
-   }
-   ```
-3. Uncomment the MCP entry in `configs/mcp-servers.conf` and reference the secret variable (e.g., `$STITCH_API_KEY`)
-4. Run `install-mcps.sh`
-
-### Uninstalling MCPs
-
-```
-# uninstall-mcps.sh
-```
-
-Removes all MCP registrations listed in the conf file from every tool's config.
+| Skill | What it does |
+|---|---|
+| `/scrape-brand` | Scrape a Shopify competitor into Feishu |
+| `/scrape-amazon` | Search Amazon by keyword, write top 10 to Feishu |
+| `/scrape-tiktok` | Search TikTok Shop by keyword, write top 10 to Feishu |
+| `/competitor-analysis` | Generate a full product development report from Feishu data |
 
 ---
 
-## Skills (All Agents)
+## Reports
 
-Skills are custom slash commands available across all your AI agents. The `.skillshare/` directory is the **single source of truth** for all skills.
+Generated reports are saved to `reports/` as Markdown files:
 
-### Editing Skills
-
-**Always edit skills directly in the `.skillshare/` directory.** Never manually edit skills in other tool directories — the `.skillshare/` folder is where skillshare manages your skills. Changes to skills in other locations will be overwritten during sync.
-
-### Installing Skills
-
-Install individual skills using:
-
-```
-# skillshare install github.com/anthropics/skills/skill-creator
-# skillshare install github.com/your-org/your-skill-name
-```
-
-### Syncing Skills to All Agents
-
-After installing or modifying skills in `.skillshare/`, sync them to all your configured AI agents:
-
-```
-# sync-skills.sh
-```
-
-This deploys skills to the platforms listed in `.skillshare/config.yaml` (Claude Code, OpenCode, Copilot, Gemini, Crush, Codex, etc.).
+- `Wooland_2026-06-19.md`
+- `Unbound_Merino_2026-06-19.md`
+- `Minus33_2026-06-20.md`
+- `Duckworth_2026-06-20.md`
 
 ---
 
-## Optional Add-ons
+## Environment Variables
 
-These scripts are available inside the container:
-
-### Data Science Tools
+Create a `.env` file (or set in Codespaces secrets):
 
 ```
-# install-datascience.sh
+# Feishu app credentials
+FEISHU_APP_ID=
+FEISHU_APP_SECRET=
+
+# Shopify scraper table
+FEISHU_BASE_ID=
+FEISHU_TABLE_ID=
+
+# Amazon scraper table
+FEISHU_AMAZON_BASE_ID=
+FEISHU_AMAZON_TABLE_ID=
+
+# TikTok scraper table
+FEISHU_TIKTOK_BASE_ID=
+FEISHU_TIKTOK_TABLE_ID=
+
+# Apify (for Amazon + TikTok scrapers)
+APIFY_API_TOKEN=
 ```
-
-Installs Python data science libraries, Jupyter, Quarto, and TinyTeX. Includes: numpy, pandas, matplotlib, seaborn, requests.
-
-### Dolt Database
-
-```
-# install-dolt.sh
-```
-
-Installs [Dolt](https://github.com/dolthub/dolt), a version-controlled SQL database.
 
 ---
 
-## Container Image
+## Other Utilities
 
-The image is built from [calvinw/ai-agentic-tools](https://github.com/calvinw/ai-agentic-tools) and published to:
+- `dedup.py` — remove duplicate records from Feishu tables
+- `create_wiki_doc.py` — publish reports to Feishu wiki
 
-```
-ghcr.io/calvinw/ai-course-devcontainer:latest
-```
+---
 
-It is rebuilt automatically on Dockerfile changes and weekly via GitHub Actions.
+## Dev Container
+
+Built on [calvinw/ai-agentic-tools](https://github.com/calvinw/ai-agentic-tools). Includes Claude Code, OpenCode, Copilot, Crush, Gemini, and Codex pre-installed. See `CLAUDE.md` for the full container reference.
